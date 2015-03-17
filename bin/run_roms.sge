@@ -1,5 +1,5 @@
 #!/bin/csh -f
-#$ -S /bin/ksh
+#$ -S /bin/bash
 #$ -q normal
 #$ -pe mpi 32 
 #$ -l excl=true  
