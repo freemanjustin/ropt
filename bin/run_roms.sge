@@ -1,0 +1,15 @@
+#!/bin/csh -f
+#$ -S /bin/ksh
+#$ -q normal
+#$ -pe mpi 32 
+#$ -l excl=true  
+#$ -l s_vmem=5G
+#$ -l s_rt=01:00:00
+#$ -cwd
+#$ -V
+#$ -j y
+#$ -N roms 
+
+time mpirun ./oceanM ocean_11.in
+
+
