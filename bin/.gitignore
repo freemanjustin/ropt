@@ -5,3 +5,8 @@ roms_his.nc
 SAMPLE_RUN_OUTPUT
 roms_grd_1.nc
 .sge_request
+run.[0-9]*
+roms.o*
+roms.po*
+
+

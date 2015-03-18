@@ -740,8 +740,8 @@ Dout(iTvdif) == F F     ! temp_vdiff, ...    vertical diffusion
 
      NFFILES == 2! number of unique forcing files
 
-     FRCNAME == ../forcing/roms_frc_windstress.nc\
-                ../forcing/roms_frc_pair.nc 
+     FRCNAME == ../../forcing/roms_frc_windstress.nc\
+                ../../forcing/roms_frc_pair.nc 
 
 ! Output NetCDF file names, [1:Ngrids].
 
