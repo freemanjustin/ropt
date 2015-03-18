@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/bash -f
 #$ -S /bin/bash
 #$ -q normal
 #$ -pe mpi 32 
