@@ -7,11 +7,7 @@ roms_grd_1.nc
 .sge_request
 
 # Run directories
-run.[0-9]*
-
-# run_roms.sge output files
-roms.o*
-roms.po*
+runs
 
 # handly link created from job script
 last

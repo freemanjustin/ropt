@@ -1,9 +1,10 @@
 #! /bin/bash
-set -x
+
 # ------------------------------------------------------------------------------
 # Display help and exits
 function help ()
 {
+    echo
     echo "job [options]"
     echo ""
     echo "The following options are supported:"
@@ -41,14 +42,18 @@ function copyAndReplace {
 
 # Make sure cwd is the directory in which this 'job' script is
 cd  `dirname \`which $0\``
+BIN=$PWD
 
+# Handle command line options
+# ===========================
 striping="no"
 exec_name=oceanM
 keep="y"
-submit="n"
+submit="y"
 omp_num_threads=""
 pe_i=4
 pe_j=8
+error=0
 while [ $# != 0 ]; do
   case $1 in
     -m)          pe_i=`echo $2|cut -f 1 -d x`
@@ -63,11 +68,22 @@ while [ $# != 0 ]; do
     --keep)      keep="y"                                 ;;
     --clean)     keep="n"                                 ;;
     --nosub)     submit=""                                ;;
+    --help)      help;                                    ;;
+    *)           echo "Unknown option $1"
+                 error=1                                  ;;
   esac
   shift
 done
 
-DIR="run.${pe_i}x${pe_j}"
+# Check for any errors
+if [ $error == "1" ]; then
+  help
+  exit
+fi
+
+# Create a unique run directory
+# =============================
+DIR="runs/run.${pe_i}x${pe_j}"
 processes=$(($pe_i*$pe_j))
 
 if [ "x$omp_num_threads" != "x" ]; then
@@ -93,24 +109,37 @@ mkdir $DIR
 rm -f last
 ln -s $DIR last
 
+# Set up striping
 if [ "x$striping" != "xno" ]; then
     lfs setstripe -c $striping $DIR
 fi
+
+# Create input files in the run directory
+# =======================================
 cd $DIR
 
-# Take the input file, and replace the default domain decomposiotion
-copyAndReplace ../ocean_11.in ocean_11.in \
-               "NtileI == [0-9]\\+ *!"  "NtileI == $pe_i !" \
-               "NtileJ == [0-9]\\+ *!"  "NtileJ == $pe_j !"
 
+# Take the input file, and replace the default domain decomposiotion
+copyAndReplace $BIN/ocean_11.in ocean_11.in \
+               "NtileI == [0-9]\\+ *!"  "NtileI == $pe_i !" \
+               "NtileJ == [0-9]\\+ *!"  "NtileJ == $pe_j !" \
+               "../../forcing/"         "$BIN/../forcing/"
 
 # ATM those files do not need to be modified
-cp ../varinfo.dat  .
-cp ../queensland.h .
-cp ../stations.in .
-ln -s ../roms_grd_1.nc .
-cp ../$exec_name .
+cp $BIN/varinfo.dat  .
+cp $BIN/queensland.h .
+cp $BIN/stations.in .
+ln -s $BIN/roms_grd_1.nc .
+if [[ "$exec_name" == /* ]]; then
+    # Absolute path
+    cp $exec_name .
+else
+    # Relative path
+    cp $BIN/$exec_name .
+fi
 
+# Create job script in run directory
+# ================================== 
 cat >job <<EOF_run_script
 #!/bin/bash -f
 #$ -S /bin/bash
@@ -126,13 +155,16 @@ cat >job <<EOF_run_script
 #$ -N roms
 
 cd $PWD
-time mpirun -np $processes $exec_name ocean_11.in
+time mpirun -np $processes $(basename $exec_name) ocean_11.in
 
 if [ "x$keep" == "n" ]; then
     rm roms_his.nc
 fi
 EOF_run_script
 
+
+# If requested, immediately start the job
+# =======================================
 if [ "x$submit" == "xy" ]; then
     qsub job
 fi
