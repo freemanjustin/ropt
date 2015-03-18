@@ -1,0 +1,138 @@
+#! /bin/bash
+set -x
+# ------------------------------------------------------------------------------
+# Display help and exits
+function help ()
+{
+    echo "job [options]"
+    echo ""
+    echo "The following options are supported:"
+    echo "-m AxB       Use A processes in East-West direction, B in North South"
+    echo "-m AxBxT     Use A processes in East-West direction, B in North South"
+    echo "             and T OpenMP threads."
+    echo "-s S         Set striping for output directory (default is $striping)."
+    echo "--nosub      Do not automatically submit the job when it is created."
+    echo "--keep       Keep big binary output files (default)."
+    echo "--clean      Remove big binary output files."
+    echo "--exec       Name of the executable (default $exec_name)."
+    echo "--help       Shows this message."
+    echo
+    exit
+}   # help
+
+# ------------------------------------------------------------------------------
+# Copies the files $1 to $2, and replaces all 
+# parameters  $(2*n+1) with $(2*n+2)
+# E.g.: copyAndReplace template script       \\
+#                      @TOP_DIR@      my_top \\
+#                      @OUTPUT_DIR@   my_out
+function copyAndReplace {
+  from=$1
+  to=$2
+  shift; shift
+  sed_string=""
+  while [ "$#" -ne "0" ]; do
+    sed_string="$sed_string | sed s#\"$1\"#\"$2\"#"
+    shift; shift
+  done
+  eval "cat $from  $sed_string >$to"
+}
+# ------------------------------------------------------------------------------
+
+# Make sure cwd is the directory in which this 'job' script is
+cd  `dirname \`which $0\``
+
+striping="no"
+exec_name=oceanM
+keep="y"
+submit="n"
+omp_num_threads=""
+pe_i=4
+pe_j=8
+while [ $# != 0 ]; do
+  case $1 in
+    -m)          pe_i=`echo $2|cut -f 1 -d x`
+                 pe_j=`echo $2|cut -f 2 -d x`
+                 threads=`echo $2|cut -f 3 -d x`
+                 if [ "$threads" != "" ]; then
+                    omp_num_threads=$threads
+                 fi
+                 shift                                    ;;
+    -s|--stripe) striping=$2; shift                       ;;
+    --exec)      exec_name=$2; shift                      ;;
+    --keep)      keep="y"                                 ;;
+    --clean)     keep="n"                                 ;;
+    --nosub)     submit=""                                ;;
+  esac
+  shift
+done
+
+DIR="run.${pe_i}x${pe_j}"
+processes=$(($pe_i*$pe_j))
+
+if [ "x$omp_num_threads" != "x" ]; then
+    DIR=${DIR}x${omp_num_threads}
+    processes=$(($processes*$omp_num_threads))
+fi
+
+# If this directory already exists, find a unique number
+# to append to create a new directory
+if [ -d $DIR ]; then
+    num=1
+    while [ -a $DIR-$num ]; do
+        num=$(($num+1))
+    done
+    DIR="$DIR-$num"
+fi
+
+# Create new run directory
+mkdir $DIR
+
+# Create a link from 'last' to the newly created
+# directory, which is a neat shortcut.
+rm -f last
+ln -s $DIR last
+
+if [ "x$striping" != "xno" ]; then
+    lfs setstripe -c $striping $DIR
+fi
+cd $DIR
+
+# Take the input file, and replace the default domain decomposiotion
+copyAndReplace ../ocean_11.in ocean_11.in \
+               "NtileI == [0-9]\\+ *!"  "NtileI == $pe_i !" \
+               "NtileJ == [0-9]\\+ *!"  "NtileJ == $pe_j !"
+
+
+# ATM those files do not need to be modified
+cp ../varinfo.dat  .
+cp ../queensland.h .
+cp ../stations.in .
+ln -s ../roms_grd_1.nc .
+cp ../$exec_name .
+
+cat >job <<EOF_run_script
+#!/bin/bash -f
+#$ -S /bin/bash
+#$ -q normal
+#$ -pe mpi $processes
+#$ -l excl=true  
+#$ -l s_vmem=5G
+#$ -l s_rt=01:00:00
+#$ -cwd
+#$ -V
+#$ -o $PWD/stdout
+#$ -j y
+#$ -N roms
+
+cd $PWD
+time mpirun -np $processes $exec_name ocean_11.in
+
+if [ "x$keep" == "n" ]; then
+    rm roms_his.nc
+fi
+EOF_run_script
+
+if [ "x$submit" == "xy" ]; then
+    qsub job
+fi
