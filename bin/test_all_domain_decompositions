@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# A simple shell script that uses the job script
+# to submit runs with all possible domain decompositions
+# for a certain number of processes. E.g.:
+# $ ./test_all_domain_decompositions 12
+# would use 2x6; 3x4; 4x3; 6x2 
+# Using 1 processes in any direction is ignored (since
+# it's often an invalid decomposition anyway, and
+# usually very slow anyway)
+
+for i in $(seq 2 $(($1-1)) ); do
+    j=$(($1/$i))
+    if [ $(($i*$j)) == $1 ]; then
+        echo $i $j
+        ./bin/job -m ${i}x${j} --exec $PWD/src/oceanM --clean
+    fi
+done
