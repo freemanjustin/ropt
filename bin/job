@@ -40,6 +40,8 @@ function copyAndReplace {
 }
 # ------------------------------------------------------------------------------
 
+args=$*
+
 # Make sure cwd is the directory in which this 'job' script is
 cd  `dirname \`which $0\``
 BIN=$PWD
@@ -154,8 +156,16 @@ cat >job <<EOF_run_script
 #$ -j y
 #$ -N roms
 
+# Load the right module versions
+module delete openmpi intel netcdf
+module load intel/14.1.106 openmpi/1.8.4 netcdf/4.3.0
+
+# Echo the original parameters used to the stdout file
+echo "Parameters: $0 $args"
+
 cd $PWD
-time mpirun -np $processes $(basename $exec_name) ocean_11.in
+/usr/bin/time -f "Wallclock\t%e\nUser time\t%U\nSystem\t\t%S" \
+     mpirun -np $processes ./$(basename $exec_name) ocean_11.in
 
 if [ "x$keep" == "n" ]; then
     rm roms_his.nc
