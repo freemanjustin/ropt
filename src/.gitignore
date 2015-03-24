@@ -1,5 +1,6 @@
 # Default build directory
 Build
 oceanM
+oceanM.tau
 # Special build directory for tau
 tau

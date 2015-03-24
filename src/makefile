@@ -106,6 +106,8 @@ MY_CPP_FLAGS ?=
 
   USE_MPIF90 ?= on 
 
+#  If tau_f90.sh should be used
+   TAU ?=
 #  If applicable, activate 64-bit compilation:
 
    USE_LARGE ?= on
@@ -138,7 +140,11 @@ MY_CPP_FLAGS ?=
 #  NetCDF and so on.
 #--------------------------------------------------------------------------
 
+ifeq "$(TAU)" "yes"
+        FORT ?= tau
+else
         FORT ?= ifort
+endif
 
 #--------------------------------------------------------------------------
 #  Set directory for executable.
@@ -155,7 +161,12 @@ MY_CPP_FLAGS ?=
 #  Set directory for temporary objects.
 #--------------------------------------------------------------------------
 
-SCRATCH_DIR ?= Build
+ifeq "$(TAU)" "yes"
+   SCRATCH_DIR ?= tau
+else
+   SCRATCH_DIR ?= Build
+endif
+
  clean_list := core *.ipo $(SCRATCH_DIR)
 
 ifeq "$(strip $(SCRATCH_DIR))" "."
@@ -296,7 +307,11 @@ ifdef USE_DEBUG
   BIN := $(BINDIR)/oceanG
 else
  ifdef USE_MPI
-   BIN := $(BINDIR)/oceanM
+   ifeq "$(TAU)" "yes"
+     BIN := $(BINDIR)/oceanM.tau
+   else
+     BIN := $(BINDIR)/oceanM
+   endif
  endif
  ifdef USE_OpenMP
    BIN := $(BINDIR)/oceanO
