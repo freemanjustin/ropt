@@ -82,6 +82,13 @@
     defined ADJUST_STFLUX   || defined ADJUST_WSTRESS
       integer :: irec
 #endif
+
+!   Begin of helping tau parsing only:
+!   Dummy is used only to help tau detect end of declaration section
+    integer dummy
+    dummy = 0
+!   End of helping tau parsing
+
 !
 !=======================================================================
 !   Initialize model variables.
